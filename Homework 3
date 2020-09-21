@@ -1,1 +1,356 @@
-dswq
+
+
+```{r, echo=FALSE, include=FALSE}
+library(dplyr)
+library(matrixStats)
+library(modeest)
+library(stringr)
+library(rvest)
+library(priceR)
+```
+
+
+Question 1:
+
+```{r setup, echo=FALSE}
+myMatrix = matrix(c(1, 0, 2, 0, 3, 0, 4, 0, 5), nrow = 3, byrow = T)
+
+rotateMatrix90 = function(mat)
+{
+  matrix = t(apply(mat,2,rev))
+  return(matrix)
+}
+
+rotateMatrix180 = function(mat)
+{
+  matrix1 = t(apply(mat,2,rev))
+  matrix2 = t(apply(matrix1,2,rev))
+  return(matrix2)
+
+}
+rotateMatrix270 = function(mat)
+{
+  matrix = apply(t(myMatrix),2,rev)
+  return(matrix)
+}
+
+myMatrix
+matrix90 = rotateMatrix90(myMatrix)
+matrix90
+matrix180 = rotateMatrix180(myMatrix)
+matrix180
+matrix270 = rotateMatrix270(myMatrix)
+matrix270
+
+
+```
+
+From the outputs above, we have rotated the matrix 90, 180, and 270 degrees
+
+
+Question 2:
+
+```{r, echo=FALSE}
+# Creating the same plot using pairs function in R 
+pairs(iris[1:4], main = "Edgar Anderson's Iris Data", pch = 21, bg = c("red", "green", "blue")[unclass(iris$Species)])
+```
+
+Question 3:
+
+The Iris data set includes data regarding three different species of iris. These species are Setosa, Versicolor, and Virginica. For each of these species, there are 50 observations, each containing information about the flowers sepal length and width, as well as its pedal length ad width. This dataset was originally used in R.A. FIshers 1936 paper, "The Use of Multiple Measurements in Taxonomic Problems". 
+
+Question 4:
+
+```{r, echo=FALSE}
+library(data.table)
+my_data <- read.table("personality-raw.txt", sep = "|", header = TRUE)
+dim(my_data)
+my_data <- my_data[, -3]
+my_data = my_data[!duplicated(my_data$md5_email),]
+dim(my_data)
+```
+
+As can be seen from the output above, once the duplicates were removed, we ended up with 678 rows instead of 838. 
+
+Question 5:
+
+```{r}
+doSummary <- function(line)
+{
+  line <- as.list(line)
+  line <- as.numeric(line)
+  summ <- summary(line)
+  return(summ)
+}
+
+#Passing monte.schaffer observation to doSummary and trimming off time and name variables for summarizing 
+mysumm <- doSummary(my_data[1,3:62]) 
+#Output for the doSummary function
+mysumm
+
+sampleVariance <- function(line)
+{
+  line = as.matrix(line)
+  myvariance <- rowVars(line)
+  return(myvariance)
+}
+
+#Again passing in lin without text values
+myvariance <- sampleVariance(my_data[1,3:62])
+#Output for sampleVariance
+myvariance
+
+doMode <- function(line)
+{
+  line <- as.numeric(line)
+  myMode = mfv(line)
+  return(myMode)
+}
+
+#reading in our list of values from monte.schaffer
+myMode = doMode(my_data[1,3:62])
+#output of mymode says that mode value is 2.6
+myMode
+
+```
+
+As can be seen from our output for monte.schaffer our summary gave us values of 1 for minimum and 1st quartile, 2.6 for median, 2.867 for mean, 3.4 for 3rd quartile, and 5 for max. Our variance function gave us a value of 1.012, and our mode function gave us 2.6. 
+
+```{r}
+getZ <- function(line)
+{
+  line <- as.numeric(line)
+  line = scale(line) #use scale command to obtain list of z-scores
+  return(line)
+}
+
+myscores = as.list(getZ(my_data[1,3:62]))
+myrawscores = as.list(my_data[1,3:62])
+#output plot for z-scors vs raw scores
+plot(myrawscores,myscores, xlab="Z-Scores", ylab="Raw Scores", main="Z-Scores Against Raw Scores")
+
+```
+
+As we can see from our table, larger and lower z-scores are reflective of relatively larger or lower raw scores, and thats to be expected. Since z-scores are calculated around a mean of 0, it would make sense for their to be high correlation, and the scale would make sense, since there were no enormous outliers in our data. If we look around our raw score mean, about 2.867, our mean appears to be 0, which makes sense for this chart. 
+
+Question 6:
+
+```{r}
+## https://www.imdb.com/filmosearch/?explore=title_type&role=nm0000243&ref_=filmo_ref_typ&sort=num_votes,desc&mode=detail&page=1&title_type=movie
+
+grabFilmInfoFromFilmsPage = function(page)
+	{
+	# 50 elements
+	# # title = id = rank = year = rating = minutes = genre = votes = metascore = desc = millions
+	
+	movies = page %>%
+		html_nodes(".mode-detail");
+		
+	
+		
+	pagecount = length(movies);
+	
+	result = data.frame( 			matrix(ncol = 11,nrow = pagecount) );
+	# a matrix-type form with lots of NA values ...
+	
+	colnames(result) = c("rank", "title", "ttid", "year", "rated", "minutes", "genre", "ratings", "metacritic", "votes", "millions"); 
+				
+	
+	for(i in 1:pagecount)
+		{
+		movie = movies[i];
+		
+		rank = movie %>%
+			html_node(".lister-item-index") %>%
+			html_text() %>%
+			as.numeric();
+		result$rank[i] = rank;
+			
+		title = movie %>%
+			html_node(".lister-item-header a") %>%
+			html_text();
+		result$title[i] = title;
+			
+		ttid = movie %>%
+			html_node(".lister-item-header a") %>%
+			html_attr("href");
+			
+			temp = strsplit(ttid,"/",fixed=T);
+		ttid = temp[[1]][3];
+		result$ttid[i] = ttid;
+		
+		year = movie %>%
+			html_node(".lister-item-year") %>%
+			html_text();
+		year = cleanupYear(year);
+		result$year[i] = year;
+		
+		rated = movie %>%
+			html_node(".certificate") %>%
+			html_text();
+		result$rated[i] = rated;
+			
+		minutes = movie %>%
+			html_node(".runtime") %>%
+			html_text();
+		minutes = cleanupMinutes(minutes);
+		result$minutes[i] = minutes;		
+		
+		genre = movie %>%
+			html_node(".genre") %>%
+			html_text();
+		genre = str_trim(genre);
+		result$genre[i] = genre;
+		
+		ratings = movie %>%
+			html_node("div .rating-list") %>%
+			html_attr("title");
+				temp = strsplit(ratings,"/",fixed=T);
+				temp = gsub("Users rated this","",temp[[1]][1],fixed=T);	
+				temp = str_trim(temp);
+		ratings = as.numeric(temp);
+		result$ratings[i] = ratings;
+		
+		metacritic = movie %>%
+			html_node(".ratings-metascore span") %>%
+			html_text();
+		metacritic = as.numeric(str_trim(metacritic));
+		result$metacritic[i] = metacritic;
+		
+		# para ... +5 EASTER EGG ...
+		
+		info = movie %>%
+			html_nodes(".lister-item-content p span") %>%
+			html_text();
+			
+		votes = as.numeric(gsub(",","",info[8],fixed=T));
+		result$votes[i] = votes;
+		
+		millions = cleanupMillions(info[11]);
+		result$millions[i] = millions;			
+		}
+		
+	
+		#str(result);
+		
+	result;
+}
+cleanupMillions = function(millions)
+	{
+	millions = gsub('$','',millions, fixed=T);
+	millions = gsub('M','',millions, fixed=T);
+	
+	millions = as.numeric(millions);
+	millions;
+	}
+	
+cleanupMinutes = function(minutes)
+	{
+	minutes = gsub('min','',minutes, fixed=T);
+	
+	minutes = as.numeric(minutes);
+	minutes;
+	}
+	
+cleanupYear = function(year)
+	{
+	year = gsub('(','',year, fixed=T);
+	year = gsub(')','',year, fixed=T);
+	year = gsub('I','',year, fixed=T);
+	year = as.numeric(year);
+	year;
+	}
+
+grabNameFromFilmsPage = function(page)
+	{
+	name = page %>%
+		html_node(".header") %>%
+		html_text();
+		
+		name = gsub("Most Rated Feature Films With","",name,fixed=T);
+		name = str_trim(name);
+	
+	name;
+	}
+
+	
+grabFilmCountFromFilmsPage = function(page)
+	{
+	totalcount = page %>%
+		html_nodes(".desc") %>%
+		html_text();
+		
+		temp = strsplit(totalcount,"of",fixed=T);
+		temp2 = strsplit(temp[[1]][2],"titles", fixed=T);
+		
+		totalcount = str_trim(temp2[[1]][1]);
+		totalcount = as.numeric(totalcount);
+		
+		temp2 = strsplit(temp[[1]][1],"to", fixed=T);
+		
+		pagecount = str_trim(temp2[[1]][2]);
+		pagecount = as.numeric(pagecount);
+		
+	result = list();
+	
+	result$totalcount = totalcount;
+	result$pagecount = pagecount;
+	
+	result;
+	}
+
+
+################# Denzel Washington ################# 
+denzel = read_html("https://www.imdb.com/filmosearch/?explore=title_type&role=nm0000243&ref_=filmo_ref_typ&sort=num_votes,desc&mode=detail&page=1&title_type=movie")
+
+denzel = grabFilmInfoFromFilmsPage(denzel)
+
+#Use function adjust_for_inflation from library(priceR) to get inflation rates by year and multiply by dollar amount. Append this to dataframe as "millions.2000" 
+
+denzel$millions.2000 <- adjust_for_inflation(denzel$millions, denzel$year, "US", to_date = 2019)
+#output
+#View(denzel)
+#################### Will Smith #####################
+
+smith = read_html("https://www.imdb.com/filmosearch/?explore=title_type&role=nm0000226&ref_=filmo_ref_typ&sort=num_votes,desc&mode=detail&page=1&title_type=movie")
+
+smith = grabFilmInfoFromFilmsPage(smith)
+
+smith$millions.2000 <- adjust_for_inflation(smith$millions, smith$year, "US", to_date = 2019)
+View(smith)
+#output
+#View(smith)
+```
+
+I'm not going to output the charts becuase I dont think it is necessary, but for this problem, I just constructed the data frames for both actors, and created new column "millions.2000" for each data frame. This new column adjusts the money made by Will Smith and Denzel Washington for inflation. 
+
+Question 7:
+
+```{r}
+boxplot(denzel$ratings, smith$ratings, names = c("Denzel", "Smith"))
+```
+
+As we can see here, generally, Denzel has a higher average rating per movie. Will Smith has een in a wider range of movies in both directions, as he has high highest observation, The Pursuit of Happyness", is rated an 8.0, which is really great by imdb standards generally. In addition, will smith has been in more worse movies as well, as After Earth is rated a 4.8, which is much worse than anything Denzel has done. Will Smith has an outlier bad movie, which is Student of the Year 2. While technically his worst movie, it was pretty small scale, and wasn't the same level of flop as after earth is. Because of this, I think it is appropriate to name After Earth his worst rated movie according to user score. 
+
+```{r}
+boxplot(denzel$metacritic, smith$metacritic, names = c("Denzel", "Smith"))
+```
+
+Based on Metacritic values, Denzel Washington has a higher average score than will smith, a higher upper quartile, lower quartile, bbest and worst score. On a rating basis, we have evidence to show that generally, Denzel Washington movies have higher ratings than Will Smith movies. 
+
+```{r}
+boxplot(denzel$millions.2000, smith$millions.2000, names = c("Denzel", "Smith"))
+```
+
+Despite Denzel being in Generally better rated movies, Will SMith has been in generally more box office pictures. He has slightly higher mean, total quartile range, along with highs and low. He also has a huger outlier, "independence day". This gives us some evidence to conclude that Will Smith has appeared in more blockbuster level movies than Denzel. 
+
+```{r}
+boxplot(denzel$minutes, smith$minutes, names = c("Denzel", "Smith"))
+```
+
+When looking at minutes, we can see that Denzel Washington is gneerally in longer movies based on his average and quartile range being higher. He also has a high outlier, "Malcolm X". This provides us with some evidence that Denzel Washington in generally in longer movies than Will Smith. 
+
+
+
+
+
